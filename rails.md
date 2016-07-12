@@ -533,8 +533,10 @@ class ApplicationHelperTest < ActionView::TestCase
     assert_equal full_title('Help'), "Help | #{@base_title}"
     assert_equal full_title('About'), "About | #{@base_title}"
     assert_equal full_title('Contact'), "Contact | #{@base_title}"
-    assert_equal full_title('Log In'), "Help | #{@base_title}"
+    assert_equal full_title('Login'), "Login | #{@base_title}"
+    assert_equal full_title('Signup'), "Signup | #{@base_title}"
   end
+```
 
 ##Filling in the Site Layout
 
@@ -927,4 +929,212 @@ end
 ```ruby
 $ rails test:integration
 $ rails test
+```
+
+***
+##User signup
+```ruby
+$ rails generate controller Users new
+    create app/controllers/users_controller.rb
+     route get 'users/new'
+    invoke erb
+    create   app/views/users
+    create   app/views/users/new.html.erb
+    invoke test_unit
+    create   test/controllers/users_controller_test.rb
+    invoke helper
+    create   app/helpers/users_helper.rb
+    invoke   test_unit
+    invoke assets
+    invoke   coffee
+    create     app/assests/javascript/users.coffee
+    invoke   scss
+    create     app/assets/stylesheets/users.scss
+```
+
+**app/controllers/users_controller.rb**
+```ruby
+class UsersController < ApplicationController
+  before_action :logged_in_user, only: [:index, :edit, :update, :destroy,
+                                        :follow, :followers]
+  before_action :correct_user,   only: [:edit, :update]
+  before_action :admin_user,     only: :destroy
+
+  def index
+    @users = User.paginate(page: params[:page])
+  end
+
+  def show
+    @user = User.find(params[:id])
+    @microposts = @user.microposts.paginate(page: params[:page])
+  end
+
+  def new
+    @user = User.new
+  end
+
+  def create
+    @user = User.new(user_params)
+    if @user.save
+      @user.send_activation_email
+      flash[:info] = 'Please Check you Email to Activate your Account!'
+      redirect_to root_url
+    else
+      render 'new'
+    end
+  end
+
+  def edit
+    @user = User.find(params[:id])
+  end
+
+  def update
+    @user = User.find(params[:id])
+    if @user.update_attributes(user_params)
+      flash[:success] = 'Profile Updated!'
+      redirect_to @user
+    else
+      render 'edit'
+    end
+  end
+
+  def following
+    @title = 'Following'
+    @user = User.find(params[:id])
+    @users = @users.following.paginate(page: params[:page])
+    render 'show_follow'
+  end
+
+  def followers
+    @title = 'Followers'
+    @user = User.find(params[:id])
+    @users = @users.followers.paginate(page: params[:page])
+    render 'show_follow'
+  end
+
+  private
+
+  def user_params
+    params.require(:user).permit( :name, :email, :password,
+                                  :password_confirmation)
+  end
+
+  # Before Filters
+  def logged_in_user
+    unless logged_in?
+      store_location
+      flash[:danger] = 'Please log in!'
+      redirect_to login_url
+    end
+  end
+
+  def correct_user
+    @user = User.find(params[:id])
+    redirect_to(root_url) unless current_user?(@user)
+  end
+
+  def admin_user
+    redirect_to(root_url) unless current_user.admin?
+  end
+end
+```
+
+**test/controllers/users_controller_test.rb**
+```ruby
+require 'test_helper'
+
+class UserControllerTest < ActionController::TestCase
+
+  def setup
+    @user = users(:tim)
+    @other_user = users(:archer)
+  end
+
+  test 'should redirect index when not logged in' do
+    get :index
+    assert_redirect_to login_url
+  end
+
+  test 'should get new' do
+    get :new
+    assert_response :success
+  end
+
+  test 'should redirect edit when not logged in' do
+    get :edit, id: @user
+    assert_not flash.empty?
+    assert_redirect_to login_url
+  end
+
+  test 'should redirect update when not logged in' do
+    patch :update, id: @user, user: { name: @user.name, email: @user.email }
+    assert_not flash.empty?
+    assert_redirect_to login_url
+  end
+
+  test 'should redirect edit when logged in as wrong user' do
+    log_in_as(@other_user)
+    get :edit, id: @user
+    assert flash.empty?
+    assert_redirect_to root_url
+  end
+
+  test 'should redirect update when logged in as wrong user' do
+    log_in_as(@other_user)
+    patch :update, id: @user, user: { name: @user.name, email: @user.email }
+    assert flash.empty?
+    assert_redirect_to root_url
+  end
+
+  test 'should redirect destroy when not logged in' do
+    assert_no_difference 'User.count' do
+      delete :destroy, id: @user
+    end
+    assert_redirect_to root_url
+  end
+
+  test 'should redirect destroy when logged in as non-admin' do
+    log_in_as(@other_user)
+    assert_no_difference 'User.count' do
+      delete :destroy, id: @user
+    end
+    assert_redirect_to root_url
+  end
+
+  test 'should redirect following when not logged in' do
+    get :following, id: @user
+    assert_redirect_to login_url
+  end
+
+  test 'should redirect followers when not logged in' do
+    get :followers, id: @user
+    assert_redirect_to login_url
+  end
+end
+```
+
+##Update routes
+**config/routs.rb**
+```ruby
+Rails.application.routse.draw do
+  root 'static_pages#home'
+  get 'help' => 'static_pages#help'
+  get 'about' => 'static_pages#about'
+  get 'cnoatct' => 'sttaic_paegs#contact'
+  get 'signup' => 'users#new'
+  get 'login' => 'sessions#new'
+  post 'login' => 'sessions#create'
+  delete 'logout' => 'sessions#destroy'
+
+  resources :users do
+    member do
+      get :following, :followers
+    end
+  end
+
+  resources :account_activations, only: [:edit]
+  resources :password_resets, only: [:nwe, :create, :edit, :update]
+  resources :microposts, only: [:create, :destroy]
+  resources :relationships, only: [:create, :destroy]
+end
 ```
