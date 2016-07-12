@@ -977,6 +977,8 @@ class UsersController < ApplicationController
     @user = User.new(user_params)
     if @user.save
       @user.send_activation_email
+      flash[:success] = 'Welcome to Mobtown Offroad!'
+      flash[:info] = 'Thank you for signing up.'
       flash[:info] = 'Please Check you Email to Activate your Account!'
       redirect_to root_url
     else
@@ -1429,4 +1431,86 @@ end
 ```ruby
 $ rails generate migration add_password_digest_to_users password_digest:string
 $ bundle exec rake db:migrate
+```
+
+##User Signup
+
+###Users Signup Tests
+```ruby
+$ rails generate integration_test users_signup
+    invoke  test_unit
+    create    test/integration/users_signup_test.rb
+```
+**test/integration/users_signup_test.rb**
+```ruby
+require 'test_helper'
+
+class UsersSignupTest <ActionDispatch::IntegrationTest
+
+  def setup
+    ActionMailer::Base.deliveries.clear
+  end
+
+  test 'invalid signup information' do
+    get signup_path
+    assert_no_difference 'User.count' do
+      post users_path, user: { name: "",
+                               email: "user@invalid",
+                               password: "foo",
+                               password_confirmation: "bar" }
+    end
+    assert_template 'users/new'
+    assert_select 'div#error_explanation'
+    assert_select 'div.field_with_errors'
+  end
+
+  test 'valid signup information with account activation' do
+    get signup_path
+    assert_difference 'User.count', 1 do
+      post users_path, user: { name: "Example User",
+                               email: "user@example.com",
+                               password: "password",
+                               password_confirmation: "password" }
+    end
+    assert_equal 1, ActionMailer::Base.deliveries.size
+    user = assigns(:user)
+    assert_not user.activated?
+    # Try to Login Before Activation
+    log_in_as(user)
+    assert_not is_logged_in?
+    # Invalid Activation Token
+    get edit_account_activation_path("invalid token")
+    assert_not is_logged_in?
+    # Valid Activation Token, Wrong Email
+    get edit_account_activation_path(user.activation_token, email: "wrong")
+    assert_not is_logged_in?
+    # Valid
+    get edit_account_activation_path(user.activation_token, email: user.email)
+    assert user.reload.activated?
+    follow_redirect!
+    assert_template 'users/show'
+    assert is_logged_in?
+  end
+end
+```
+
+###Error Messages
+```ruby
+$ mkdir app/views/shared
+```
+
+**app/views/shared/_error_messages.html.erb**
+```html
+<% if @user.errors.any? %>
+  <div id="error_explanation">
+    <div class="alert alert-danger">
+      The form contains <%= pluralize(@user.errors.count), 'error') %>
+    </div>
+    <ul>
+      <% @user.errors.full_messages.each do |msg| %>
+      <li><%= msg %></li>
+      <% end %>
+    </ul>
+  </div>
+<% end %>
 ```
