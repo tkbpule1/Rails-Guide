@@ -1427,6 +1427,6 @@ end
 
 ##Secure Password
 ```ruby
-$ rails generate migration add_password_digest:string
+$ rails generate migration add_password_digest_to_users password_digest:string
 $ bundle exec rake db:migrate
 ```
