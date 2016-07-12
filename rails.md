@@ -1168,3 +1168,265 @@ end
   </div>
 </div>
 ```
+
+##Modeling Users
+
+###Generate a User Model
+```ruby
+$ rails generate model User name:string email:string
+$ bundle exec rake db:migrate
+```
+
+###Edit User Model
+**app/models/user.rb**
+```ruby
+class User < ActiveRecord::Base
+  has_many :microposts, dependent: :destroy
+  has_many :active_relationships,  class_name:   "Relationship",
+                                   foreign_key:  "follower_id",
+                                   dependent:    :destroy
+  has_many :passive_relationships, class_name:   "Relationship",
+                                   foreign_key:  "followed_id",
+                                   dependent:    :destroy
+  has_many :following, through: :active_relationships, source: :followed
+  has_many :followers, through: :passive_relationships, source: :follower
+
+  attr_accessor :remember_token, :activation_token, :reset_token
+  before_save   :downcase_email
+  before_create :create_activation_digest
+  after_create :follow_admin!
+  validates :name, presence: true, length: { maximum: 25 }
+  VALID_EMAIL_REGEX = /\A[\w+\-.]+@[a-z\d\-.]+\.[a-z]+\z/i
+  validates :email, presence: true, length: { maximum: 255 },
+                    format: { with: VALID_EMAIL_REGEX },
+                    uniqueness: case_sensitive: false
+  has_secure_password
+  validates :password, presence: true, length: { minimum: 6 }, allow_nil: true
+
+  # Returns the hash digest of the given string.
+  def User.digest(string)
+    cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost
+    BCrypt::Password.create(string, cost: cost)
+  end
+
+  # Returns a random token.
+  def User.new_token
+    SecureRandom.urlsafe_base64
+  end
+
+  #Remembers a user in the database for use in persistent sessions.
+  def remember
+    self.remember_token = User.new_token
+    update_attribute(:remember_digest, User.digest(remember_token))
+  end
+
+  # Returns true if the given token matches the digest.
+  def authenticated?(remember_token)
+    return false if remember_digest.nil?
+    BCrypt::Password.new(remember_digest).is_password?(remember_token)
+  end
+
+  # Forgets a user.
+  def forget
+    update_attribute(:remember_digest, nil)
+  end
+
+  # Returns true if the given token matches the digest.
+  def authenticated?(attribute, token)
+    digest = send("#{attribute}_digest")
+    return false if digest.nil?
+    BCrypt::Password.new(digest).is_password?(token)
+  end
+
+  # Activates an account.
+  def activate
+    update_attribute(:activated, true)
+    update_attribute(:activated_at, Time.zone.now)
+  end
+
+  # Sends activation email.
+  def send_activation_email
+    UserMailer.account_activation(self).deliver_now
+  end
+
+  # Sets the password reset attributes.
+  def create_reset_digest
+    self.reset_token = User.new_token
+    update_attribute(:reset_digest, User.digest(reset_token))
+    update_attribute(:reset_sent_at, Time.zone.now)
+  end
+
+  def send_password_reset_email
+    UserMailer.password_reset(self).deliver_now
+  end
+
+  # Returns true if a password reset has expired.
+  def password_reset_expired?
+    reset_sent_at < 2.hours.ago
+  end
+
+  # Defines a proto-feed.
+  def feed
+    following_ids = "SELECT followed_id FROM relationships
+                    WHERE follower_id = :user_id"
+    Micropost.where("user_id IN (#{following_ids})
+                    OR user_id = :user_id", user_id: id)
+  end
+
+  # Follows a user.
+  def follow(other_user)
+    active_relationships.create(followed_id: other_user.id)
+  end
+
+  # Unfollows a user.
+  def unfollow(other_user)
+    active_relationships.find_by(followed_id: other_user.id).destroy
+  end
+
+  # Returns true if the current user is following the other user.
+  def following?(other_user)
+    following.include?(other_user)
+  end
+
+  def follow_admin!
+    active_relationships.create!(followed_id: admin_user.id)
+  end
+
+private
+
+  # Converts email to all lower-case.
+  def downcase_email
+    self.email = email.downcase
+  end
+
+  # Creates and assigns the activation token and digest.
+  def create_activation_digest
+    self.activation_token = User.new_token
+    self.activation_digest = User.digest(activation_token)
+  end
+
+  def admin_user
+    self.admin.id
+  end
+end
+```
+
+###Model User Tests
+**test/models/user_test.rb**
+```ruby
+require 'test_helper'
+
+class UserTest < ActiveSupport::TestCase
+
+  def setup
+    @user = User.new(name: "Eample User", email: "user@email.com",
+                      password: "foobar", password_confirmation: "foobar")
+  end
+
+  test "should be valid" do
+    assert @user.valid?
+  end
+
+  test "name should be present" do
+    @user.name = "    "
+    assert_not @user.valid?
+  end
+
+  test "email should be present" do
+    @user.email = "    "
+    assert_not @user.valid?
+  end
+
+  test "name should not be too long" do
+    @user.name = "a" * 26
+    assert_not @user.valid?
+  end
+
+  test "email should not be too long" do
+    @user.email = "a" * 244 + "@example.com"
+    assert_not @user.valid?
+  end
+
+  test "email validation should accept valid addresses" do
+    valid_addresses = %w[user@example.com USER@foo.COM A_US-ER@foo.bar.org
+                          first.last@foo.jp alice+bob@baz.cn]
+    valid_addresses.each do |valid_address|
+      @user.email = valid_address
+      assert @user.valid?, "#{valid_address.inspect} should be valid"
+    end
+  end
+
+  test "email validation should reject invalid addresses" do
+    invalid_addresses = %w[user@example,com user_at_foo.org user.name@example.
+                            foo@bar_baz.com foo@bar+baz.com]
+    invalid_addresses.each do |invalid_address|
+      @user.email = invalid_address
+      assert_not @user.valid?, "#{invalid_address.inspect} should be invalid"
+    end
+  end
+
+  test "email addresses should be unique" do
+    duplicate_user = @user.dup
+    duplicate_user.email = @user.email.upcase
+    @user.save
+    assert_not duplicate_user.valid?
+  end
+
+  test "password should be present (nonblank)" do
+    @user.password = @user.password_confirmation = " " * 6
+    assert_not @user.valid?
+  end
+
+  test "password should have minimum length" do
+    @user.password = @user.password_confirmation = "a" * 5
+    assert_not @user.valid?
+  end
+
+  test "authenticated? should return false for a user with nil digest" do
+    assert_not @user.authenticated?(:remember, '')
+  end
+
+  test "associated microposts should be destroyed" do
+    @user.save
+    @user.microposts.create!(content: "lorem ipus")
+    assert_difference 'Micropost.count', -1 do
+      @user.destroy
+    end
+  end
+
+  test "should follow and unfollow a user" do
+    tim = users(:tim)
+    archer = users(:archer)
+    assert_not tim.following?(archer)
+    tim.follow(archer)
+    assert tim.following?(archer)
+    assert archer.followers.include?(tim)
+    tim.unfollow(archer)
+    assert_not tim.following?(archer)
+  end
+
+  test "feed should have the right posts" do
+    tim = users(:tim)
+    archer = users(:archer)
+    lana = users(:lana)
+    # Posts from followed user
+    lana.microposts.each do |post_following|
+      assert tim.feed.include?(post_following)
+    end
+    # Posts from self
+    tim.microposts.each do |post_self|
+      assert tim.feed.include?(post_self)
+    end
+    # Posts from unfollowed user
+    archer.microposts.each do |post_unfollowed|
+      assert_not tim.feed.include?(post_unfollowed)
+    end
+  end
+end
+```
+
+##Secure Password
+```ruby
+$ rails generate migration add_password_digest:string
+$ bundle exec rake db:migrate
+```
