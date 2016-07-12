@@ -274,6 +274,7 @@ $ bundle exec rake db:migrate
 **config/routes.rb**
 ```ruby
 Rails.application.routes.draw do
+  root 'static_pages#home'
   get 'static_pages/home'
   get 'static_pages/help'
 end
@@ -391,4 +392,91 @@ end
 ```java
 $ bundle exec rake test
   3 tests, 3 assertions, 0 failures, 0 errors, 0 skips
+```
+
+***
+
+##Create Titles
+
+###Start by creating tests
+**test/controllers/static_pages_controller_test.rb**
+```ruby
+require 'test_helper'
+
+class StaticPagesControllerTest < ActionDispatch::IntegrationTest
+
+  test 'should get home' do
+    get :home
+    assert_response :success
+    assert_select 'title' "#{@base_title}"
+  end
+
+  test 'should get help' do
+    get :help
+    assert_response :success
+    assert_select 'title', "Help | #{@base_title}"
+  end
+
+  test 'should get about' do
+    get :about
+    assert_response :success
+    assert_select 'title', "About | #{@base_title}"
+  end
+end
+```
+
+###Define base_title
+**application_helper.rb**
+```ruby
+module ApplicationHelper
+  # Returns the full title on a per-page basis.
+  def full_title(page_title = '')
+    base_title = 'Mobtown Offroad'
+    if page_title.empty?
+      base_title
+    else
+      page_title + ' | ' + base_title
+    end
+  end
+end
+```
+
+###Next, add titles to pages help and home
+**app/views/static_pages/help.html.erb**
+```html
+<% provide(:title, "Help") %>
+...
+...
+```
+
+**app/views/static_pages/about.html.erb**
+```html
+<% provide(:title, "About") %>
+...
+...
+```
+
+###Finally, add titles to layout
+**app/views/layouts/application.html.erb**
+```html
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= full_title(yield(:title)) %></title>
+    <%= stylesheet_link_tag 'application', media: 'all',
+    'data-turbolinks-track' => true %>
+    <%= javascript_include_tag 'application', 'data-turbolinks-track' => true %>
+    <%= csrf_meta_tags %>
+  </head>
+  <body>
+    <%= yield %>
+  </body>
+</html>
+```
+
+### Now, test should pass:
+```java
+$ bundle exec rake test
+  3 tests, 6 assertions, 0 failures, 0 errors, 0 skips
 ```
