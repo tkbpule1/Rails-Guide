@@ -296,19 +296,43 @@ end
 **app/views/static_pages/home.html.erb**
 
 ```html
-<h1>Mobtown Offroad</h1>
-<p>
-  Mobtown Offroad is a small company that creates offroad parts for trucks.
-</p>
+<% if logged_in? %>
+  <div class="row">
+    <aside class="col-md-4">
+      <section class="user_info">
+        <%= render 'shared/user_info' %>
+      </section>
+      <section class="micropost_form">
+        <%= render 'shared/micropost_form'
+      </section>      
+    </aside>
+    <div class="col-md-8">
+      <h3>Micropost Feed</h3>
+      <%= render 'shared/feed' %>
+    </div>
+  </div>
+  <% else %>
+<div class="center jumbotron">
+  <h1>Mobtown Offroad</h1>
+  <h2>
+    Mobtown Offroad is a small company that creates offroad parts for trucks.
+  </h2>
+
+  <%= link_to 'Sign up now!', signup_path, class: "btn btn-lg btn-primary" %>
+</div>
+<% end %>
 ```
 
 **app/views/static_pages/help.html.erb**
 ```html
+
 <h1>Help</h1>
-<p>
-  If you need a product we don't sell, we would be <em>excited</em> to
-  hear from you.  <a href="mobtownoffroad.com/contact">Contact Us Here!</a>
-</p>
+<div class="center jumbotron">
+  <h2>
+    If you need a product we don't sell, we would be <em>excited</em> to
+    hear from you.  <a href="mobtownoffroad.com/contact">Contact Us Here!</a>
+  </h2>
+</div>
 ```
 
 ***
@@ -379,13 +403,15 @@ end
 ###Finally, we need to create a file(*view*) in apps/views/static_pages called about.html.erb
 **app/views/static_pages/about.html.erb**
 ```html
-<h1>About Mobtown Offroad</h1>
-<p>
-  Built for a desire to create <em>awesome</em> <b>offroad parts</b> for
-  our own trucks, Mobtown designs and manufactures parts for <b>Toyota</b>
-   trucks.
-   <b>Made in the USA</b>
-</p>
+<div class="center jumbotron">
+  <h1>About Mobtown Offroad</h1>
+  <h2>
+    Built for a desire to create <em>awesome</em> <b>offroad parts</b> for
+    our own trucks, Mobtown designs and manufactures parts for <b>Toyota</b>
+    trucks.
+    <b>Made in the USA</b>
+  </h2>
+</div>
 ```
 
 ###Run Test
@@ -493,4 +519,98 @@ Minitest::Reporters.use!
 class ActiveSupport::TestCase
   # Setup all fixtures in test/fixtures/.yml for all tests in alphabetical order.
   fixtures :all
-end 
+end
+```
+
+##Filling in the Site Layout
+
+
+**app/views/layouts/application.html.erb**
+```html
+<!DOCTYPE html>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= full_title(yield(:title)) %></title>
+    <%= csrf_meta_tags %>
+    <%= stylesheet_link_tag 'application', media: 'all',
+                                           'data-turbolinks-track' => true %>
+    <%= javascript_include_tag 'application', 'data-turbolinks-track' => true %>
+    <%= render 'layouts/shim' %>
+  </head>
+  <body>
+    <%= render 'layouts/header' %>
+    <div class="container">
+      <% flash.each do |msg_type, msg| %>
+        <div class="alert alert-<%= msg_type %>">
+          <%= msg %>
+        </div>
+      <% end %>
+      <%= yield %>
+      <%= render 'layouts/footer' %>
+      <%= debug(params) if Rails.env.development?
+    </div>
+    </header>
+  </body>
+</html>
+```
+
+###Create header file (\_header.html.erb)
+**app/views/layouts/_header.html.erb**
+
+```html
+<header class="navbar navbar-fixed-top navbar-inverse">
+  <div class="container">
+    <%= link_to 'Mobtown', root_path, id: 'logo' %>
+    <nav>
+      <ul class="nav navbar-nav navbar-right">
+        <li><%= link_to 'Home', root_path %></li>
+        <li><%= link_to 'Help', help_path %></li>
+        <% if logged_in? %>
+          <li><%= link_to 'Users', users_path %></li>
+          <li class="dropdown">
+            <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+              Account <b class="caret"></b>
+            </a>
+            <ul>
+              <li><%= link_to 'Profile', current_user %></li>
+              <li><%= link_to 'Settings', edit_user_path(current_user %>)</li>
+              <li class="divider"></li>
+              <li> <%= link_to 'Log Out', logout_path, method: 'delete' %></li>
+            </ul>
+          </li>
+        <% else %>
+          <li><%= link_to 'Log In', login_path %></li>
+        <% end %>
+      </ul>
+    </nav>
+  </div>
+</header>
+```
+
+###Create footer file (\_footer.html.erb)
+**app/views/layouts/_footer.html.erb**
+
+```html
+<footer class="footer">
+  <div class="mobtown">
+    <%= link_to 'Mobtown', root_path %>    
+  </div>
+  <nav>
+    <ul>
+      <li><%= link_to 'About', about_path %></li>
+      <li><%= link_to 'Contact', contact_path %></li>
+    </ul>
+  </nav>
+</footer>
+```
+
+###Create shim file (\_shim.html.erb)
+**app/views/layouts/_shim.html.erb**
+
+```html
+<!--[if lt IE 9]>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/r29/html5.min.js">
+  </script>
+<![endif]-->
+```
