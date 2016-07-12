@@ -80,6 +80,11 @@ group :production do
 end
 ```
 
+###Start the Server
+```ruby
+$ rails server #Start the server on locahost:3000
+```
+
 ###Initialize Git
 ```javascript
 $ git init
@@ -104,6 +109,7 @@ $ git remote add origin https://tkbpule1@bitbucket.org/tkbpule1/name_of_repo.git
 $ git push
 $ git config --global push.default current /*Push branches to repo*/
 ```
+
 ***
 
 ###Configure Application
@@ -189,6 +195,7 @@ config.secret_key_base = ENV["SECRET_KEY_BASE"]
 # Force all access to the app over SSL
 config.force_ssl = true
 ```
+
 ***
 
 ###Use Heroku to Deploy Application
@@ -227,6 +234,154 @@ web: bundle exec puma -C config/puma.rb
 $ git push heroku
 $ heroku run rake db:migrate
 ```
+
 ***
+
+##STATIC PAGES
+
+```ruby
+$ git checkout -b static-pages
+
+$ rails generate controller StaticPages home help
+    create app/controllers/static_pages_controller.rb
+     route get 'static_pages/help'
+     route get 'static_pages/home'
+    invoke erb
+    create   app/views/static_pages
+    create   app/views/static_pages/home.html.erb
+    create   app/views/static_pages/help.html.erb
+    invoke test_unit
+    create   test/controllers/static_pages_controller_test.rb
+    invoke helper
+    create   app/helpers/static_pages_helper.rb
+    invoke   test_unit
+    invoke assets
+    invoke   coffee
+    create     app/assets/javascript/static_pages.coffee
+    invoke   scss
+    create     app/assets/stylesheets/static_pages.scss
+```
+
+#NOTE: Undoing Things:
+```ruby
+$ rails destroy controller StaticPages home help
+$ rails destroy model User
+$ bundle exec rake db:rollback
+$ bundle exec rake db:status
+$ bundle exec rake db:migrate
+```
+
+**config/routes.rb**
+```ruby
+Rails.application.routes.draw do
+  get 'static_pages/home'
+  get 'static_pages/help'
+end
+```
+
+**app/controllers/static_pages_controller.rb**
+```ruby
+class StaticPagesController < ApplicationController
+  def home    
+  end
+
+  def help    
+  end
+end
+```
+
+###Customize Static Pages
+
+**app/views/static_pages/home.html.erb**
+
+```html
+<h1>Mobtown Offroad</h1>
+<p>
+  Mobtown Offroad is a small company that creates offroad parts for trucks.
+</p>
+```
+
+**app/views/static_pages/help.html.erb**
+```html
+<h1>Help</h1>
+<p>
+  If you need a product we don't sell, we would be <em>excited</em> to
+  hear from you.  <a href="mobtownoffroad.com/contact">Contact Us Here!</a>
+</p>
+```
+
 ***
-***
+
+##Test Driven Development
+
+**test/controllers/static_pages_controller_test.rb**
+```ruby
+require 'test_helper'
+
+class StaticPagesControllerTest < ActionDispatch::IntegrationTest
+
+  test 'should get home' do
+    get :home
+    assert_response :success
+  end
+
+  test 'should get help' do
+    get :help
+    assert_response :success
+  end
+end
+```
+
+###Run Test
+```java
+$ bundle exec rake test
+  2 tests, 2 assertions, 0 failures, 0 errors, 0 skips
+```
+
+###A test for the About Page
+```ruby
+test 'should get about' do
+  get :about
+  assert_response :success
+end
+```
+
+###Run Test
+```java
+$ bundle exec rake test
+  2 tests, 2 assertions, 0 failures, 1 errors, 0 skips
+```
+
+####To solve error, we need to add a *route* to the about page:
+**config/routes.rb**
+```ruby
+Rails.application.routes.draw do
+  get 'static_pages/home'
+  get 'static_pages/help'
+  get 'static_pages/about'
+end
+```
+####Next, we need to create an *Action* to the static_pages_controller
+**app/controllers/static_pages_controller.rb**
+```ruby
+class StaticPagesController < ApplicationController
+  def home
+  end
+
+  def help
+  end
+
+  def about
+  end
+end
+```
+###Finally, we need to create a file(*view*) in apps/views/static_pages called about.html.erb
+**app/views/static_pages/about.html.erb**
+```html
+<h1>About Mobtown Offroad</h1>
+<p>
+  Built for a desire to create <em>awesome</em> <b>offroad parts</b> for
+  our own trucks, Mobtown designs and manufactures parts for <b>Toyota</b>
+   trucks.
+</p>
+```
