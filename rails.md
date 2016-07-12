@@ -1114,7 +1114,7 @@ end
 ```
 
 ##Update routes
-**config/routs.rb**
+**config/routes.rb**
 ```ruby
 Rails.application.routse.draw do
   root 'static_pages#home'
