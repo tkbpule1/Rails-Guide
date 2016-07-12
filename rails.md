@@ -480,3 +480,17 @@ end
 $ bundle exec rake test
   3 tests, 6 assertions, 0 failures, 0 errors, 0 skips
 ```
+***
+##Advanced Testing Setup
+**test/test_helper.rb**
+```ruby
+ENV['RAILS_ENV'] ||= 'test'
+require File.expand_path('../../config/environments', __FILE__)
+require 'rails/test_help'
+require 'minitest/reporters'
+Minitest::Reporters.use!
+
+class ActiveSupport::TestCase
+  # Setup all fixtures in test/fixtures/.yml for all tests in alphabetical order.
+  fixtures :all
+end 
