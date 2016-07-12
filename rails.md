@@ -951,7 +951,7 @@ $ rails generate controller Users new
     invoke   scss
     create     app/assets/stylesheets/users.scss
 ```
-
+###Users Controller
 **app/controllers/users_controller.rb**
 ```ruby
 class UsersController < ApplicationController
@@ -1039,6 +1039,7 @@ class UsersController < ApplicationController
 end
 ```
 
+###Users Tests
 **test/controllers/users_controller_test.rb**
 ```ruby
 require 'test_helper'
@@ -1113,7 +1114,7 @@ class UserControllerTest < ActionController::TestCase
 end
 ```
 
-##Update routes
+###Update routes
 **config/routes.rb**
 ```ruby
 Rails.application.routse.draw do
@@ -1137,4 +1138,33 @@ Rails.application.routse.draw do
   resources :microposts, only: [:create, :destroy]
   resources :relationships, only: [:create, :destroy]
 end
+```
+
+###New Users
+**app/views/users/new.html.erb**
+```html
+<% provide(:title, 'Sign up') %>
+<h1>Sign up</h1>
+
+<div class="row">
+  <div class="col-md-6 col-md-offset-3">
+    <%= form_for(@user) do |f| %>
+      <%= render 'shared/error_messages', object: f.object %>
+
+      <%= f.label :name %>
+      <%= f.text_field :name, class: 'form-control' %>
+
+      <%= f.label :email %>
+      <%= f.email_field :email, class: 'form-control' %>
+
+      <%= f.label :password %>
+      <%= f.password_field :password, class: 'form-control' %>
+
+      <%= f.label :password_confirmation, "Confirmation" %>
+      <%= f.password_field :password_confirmation, class: 'form-control' %>
+
+      <%= f.submit "Create my account", class: "btn btn-primary" %>
+    <% end %>
+  </div>
+</div>
 ```
