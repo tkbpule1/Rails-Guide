@@ -349,7 +349,7 @@ end
 ###Run Test
 ```java
 $ bundle exec rake test
-  2 tests, 2 assertions, 0 failures, 1 errors, 0 skips
+  3 tests, 3 assertions, 0 failures, 1 errors, 0 skips
 ```
 
 ####To solve error, we need to add a *route* to the about page:
@@ -383,5 +383,12 @@ end
   Built for a desire to create <em>awesome</em> <b>offroad parts</b> for
   our own trucks, Mobtown designs and manufactures parts for <b>Toyota</b>
    trucks.
+   <b>Made in the USA</b>
 </p>
+```
+
+###Run Test
+```java
+$ bundle exec rake test
+  3 tests, 3 assertions, 0 failures, 0 errors, 0 skips
 ```
