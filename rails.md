@@ -1170,7 +1170,7 @@ end
   </div>
 </div>
 ```
-
+***
 ##Modeling Users
 
 ###Generate a User Model
@@ -1207,7 +1207,8 @@ class User < ActiveRecord::Base
 
   # Returns the hash digest of the given string.
   def User.digest(string)
-    cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST : BCrypt::Engine.cost
+    cost = ActiveModel::SecurePassword.min_cost ? BCrypt::Engine::MIN_COST :
+                                                  BCrypt::Engine.cost
     BCrypt::Password.create(string, cost: cost)
   end
 
@@ -1426,13 +1427,13 @@ class UserTest < ActiveSupport::TestCase
   end
 end
 ```
-
+***
 ##Secure Password
 ```ruby
 $ rails generate migration add_password_digest_to_users password_digest:string
 $ bundle exec rake db:migrate
 ```
-
+***
 ##User Signup
 
 ###Users Signup Tests
@@ -1513,4 +1514,233 @@ $ mkdir app/views/shared
     </ul>
   </div>
 <% end %>
+```
+***
+##LogIn
+
+```ruby
+$ rails generate controller Sessions new
+```
+**app/controllers/sessions_controller.rb**
+```ruby
+class SessionsController < ApplicationController
+  def new
+  end
+
+  def create
+    user = User.find_by(email: params[:session][:email].downcase)
+    if user && user.authenticate(params[:session][:password])
+      # If activated, log the user in and redirect to the user's page
+      if user.activated?
+        log_in user
+        params[:session][:remember_me] == '1' ? remember(user) : forget(user)
+        redirect_to user
+      else
+        msg = "Account NOT Activated!"
+        msg += "Check your email for the Activation Link."
+        flash[:warning] = msg
+        redirect_back_or root_url
+      end
+    else
+      # Create an error message
+      flash.now[:danger] = 'Invalid email/password combination'
+      render 'new'
+    end
+  end
+
+  def destroy
+    log_out if logged_in?
+    redirect_to root_url
+  end
+end
+```
+
+**test/controllers/sessions_controller_test.rb**
+```ruby
+require 'test_helper'
+class SessionControllerTest < ActionDispatch::IntegrationTest
+
+	test 'should get new' do
+		get login_path
+		assert_response :success
+	end
+end
+```
+
+**app/views/sessions/new.html.erb**
+```html
+<% provide(:title, "Login") %>
+<h1>Log In</h1>
+
+<div class="row">
+  <div class="col-md-5 col-md-offset-3">
+    <%= form_for(:session, url: login_path) do |f| %>
+
+      <%= f.label :email %>
+      <%= f.email_field :email, class: 'form-control' %>
+
+      <%= f.label :password %>
+      <%= f.password_field :password, class: 'form-control' %>
+
+      <%= f.submit "Log In", class: "btn btn-primary" %>
+    <% end %>
+
+    <h3>New User? <%= link_to "Sign Up Now!", signup_path %></h3>
+  </div>
+</div>
+```
+
+**app/helpers/sessions_helper.rb**
+```ruby
+module SessionsHelper
+  # Logs in the given user
+  def log_in(user)
+    session[:user_id] = user.id
+  end
+
+  # Remembers a user in a persistent session.
+  def remember(user)
+    user.remember
+    Cookies.permanent.signed[:user_id] = user.id
+    Cookies.permanent[:remember_token] = user.remember_token
+  end
+
+  def current_user?(user)
+    user == current_user
+  end
+
+  def current_user
+    if (user_id = session[:user_id])
+      @current_user ||= User.find_by(id: user_id)
+    elsif (user_id = cookies.signed[:user_id])
+      user = User.find_by(id: user_id)
+      if user && user.authenticated?(:remember, cookies[:remember_token])
+        log_in user
+        @current_user = user
+      end
+    end
+  end
+
+  def logged_in?
+    !current_user.nil?
+  end
+
+  def forget(user)
+    user.forget
+    cookies.delete(:user_id)
+    cookies.delete(:remember_token)
+    @current_user = nil
+  end
+
+  def log_out
+    forget(current_user)
+    session.delete(:user_id)
+    @current_user = nil
+  end
+
+  def redirect_back_or(default)
+    redirect_to(session[:forwarding_url] || default)
+    session.delete(:forwarding_url)
+  end
+
+  def store_location
+    session[:forwarding_url] = request.url if request.get?
+  end
+end
+```
+**app/assests/javascript/application.js**
+```javascript
+//= require jquery
+//= require jquery_ujs
+//= require bootstrap
+//= require turbolinks
+//= require_tree .
+```
+**test/integration/users_login_test.rb**
+```ruby
+require 'test_helper'
+
+class UsersLoginTest < ActionDispatch::IntegrationTest
+  def setup
+    @user = users(:tim)
+  end
+
+  test "login with invalid information" do
+    get login_path
+    assert_template 'sessions/new'
+    post login_path, session: { email: "", password: "" }
+    assert_template 'sessions/new'
+    assert_not flash.empty?
+    get root_path
+    assert flash.empty?
+  end
+
+  test "login with valid information" do
+    get login_path
+    post login_path, session: { email: @user.email, password: 'password'}
+    assert is_logged_in?
+    assert_redirected_to @user
+    follow_redirect!
+    assert_template 'users/show'
+    assert_select "a[href=?]", login_path, count: 0
+    assert_select "a[href=?]", logout_path
+    assert_select "a[href=?]", user_path(@user)
+    delete logout_path
+    assert_not is_logged_in?
+    assert_redirected_to root_url
+    # Simulate a user clicking logout in a second window.
+    delete logout_path
+    follow_redirect!
+    assert_select "a[href=?]", login_path
+    assert_select "a[href=?]", logout_path, count: 0
+    assert_select "a[href=?]", user_path(@user), count: 0
+  end
+
+  test "login with remembering" do
+    log_in_as(@user, remember_me: '1')
+    assert_not_nil cookies['remember_token']
+  end
+
+  test "login without remembering" do
+    log_in_as(@user, remember_me: '0')
+    assert_nil cookies['remember_token']
+  end
+end
+```
+**test/test_helper.rb**
+```ruby
+ENV['RAILS_ENV'] ||= 'test'
+require File.expand_path('../../config/environment', __FILE__)
+require 'rails/test_help'
+
+class ActiveSupport::TestCase
+  # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
+  fixtures :all
+  include ApplicationHelper
+
+  # Returns true if a test user is logged in.
+  def is_logged_in?
+    !session[:user_id].nil?
+  end
+
+  # Logs in a test user.
+  def log_in_as(user, options = {})
+    password =    options[:password] || 'password'
+    remember_me = options[:remember_me] || '1'
+    if integration_test?
+      post login_path, session: { email: user.email,
+                                  password: password,
+                                  remember_me: remember_me }
+    else
+      session[:user_id] = user.id
+    end
+  end
+
+  private
+
+  # Returns true inside an integration test.
+  def integration_test?
+    defined?(post_via_redirect)
+  end
+end
 ```
