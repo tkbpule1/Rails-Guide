@@ -1528,13 +1528,13 @@ class SessionsController < ApplicationController
   end
 
   def create
-    user = User.find_by(email: params[:session][:email].downcase)
-    if user && user.authenticate(params[:session][:password])
+    @user = User.find_by(email: params[:session][:email].downcase)
+    if @user && @user.authenticate(params[:session][:password])
       # If activated, log the user in and redirect to the user's page
-      if user.activated?
-        log_in user
-        params[:session][:remember_me] == '1' ? remember(user) : forget(user)
-        redirect_to user
+      if @user.activated?
+        log_in @user
+        params[:session][:remember_me] == '1' ? remember(@user) : forget(@user)
+        redirect_to @user
       else
         msg = "Account NOT Activated!"
         msg += "Check your email for the Activation Link."
@@ -1582,6 +1582,11 @@ end
       <%= f.label :password %>
       <%= f.password_field :password, class: 'form-control' %>
 
+      <%= f.label :remember_me, class: "checkbox inline" do %>
+        <%= f.check_box :remember_me %>
+        <span>Remember me on this computer</span>
+        <% end %>
+
       <%= f.submit "Log In", class: "btn btn-primary" %>
     <% end %>
 
@@ -1614,7 +1619,7 @@ module SessionsHelper
       @current_user ||= User.find_by(id: user_id)
     elsif (user_id = cookies.signed[:user_id])
       user = User.find_by(id: user_id)
-      if user && user.authenticated?(:remember, cookies[:remember_token])
+      if user && user.authenticated?(cookies[:remember_token])
         log_in user
         @current_user = user
       end
@@ -1724,17 +1729,19 @@ class ActiveSupport::TestCase
   end
 
   # Logs in a test user.
-  def log_in_as(user, options = {})
-    password =    options[:password] || 'password'
-    remember_me = options[:remember_me] || '1'
-    if integration_test?
-      post login_path, session: { email: user.email,
-                                  password: password,
-                                  remember_me: remember_me }
-    else
-      session[:user_id] = user.id
-    end
+  def log_in_as(user)
+    session[:user_id] = user.id
   end
+end
+
+class ActinDispatch::IntegrationTest
+
+  def log_in_as(user, password: "password", remember_me: '1')
+      post login_path, params: { session: { email: user.email,
+                                            password: password,
+                                            remember_me: remember_me } }
+  end
+end
 
   private
 
@@ -1744,3 +1751,48 @@ class ActiveSupport::TestCase
   end
 end
 ```
+
+**app/controllers/application_controller.rb**
+```ruby
+class ApplicationController < ActionController::Base
+  protect_from_forgery with: :exception
+  include SessionHelper
+
+  private
+
+  def logged_in_user
+    unless logged_in?
+      store_location
+      flash[:danger] = "Please Log In."
+      redirect_to login_url
+    end
+  end
+end
+```
+
+## Advanced Login
+```ruby
+$ rails generate migration add_remember_digest_to_users remember_digest:string
+$ bundle exec rake db:migrate
+```
+**test/helpers/sessions_helper_test.rb**
+```ruby
+require 'test_helper'
+
+class SessionHelperTest < ActionView::TestCase
+
+  def setup
+    @user = users(:tim)
+    remember(@user)
+  end
+
+  test 'current_user returns right user when session is nil' do
+    assert_equal @user, current_user
+    assert is_logged_in?
+  end
+
+  test 'current_user returns nil when remember digest is wrong' do
+    @user.update_attribute(:remember_digest, User.digest(User.new_token))
+    assert_nil current_user
+  end
+end
