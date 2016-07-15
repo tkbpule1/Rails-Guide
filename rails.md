@@ -6,6 +6,48 @@
 $ rails new mobtown -d postgresql
 ```
 
+###Initialize Git
+```javascript
+$ git init
+$ git add -A
+$ git commit -am "Initialize Repository"
+```
+
+###Create a new Repository at [Github](www.github.com) or [Bitbucket](www.bitbucket.org)
+
+**Github**
+```javascript
+$ git remote add origin git@github.com:tkbpule1@gmail.com/name_of_repo.git
+```
+
+**Bitbucket**
+```javascript
+$ git remote add origin https://tkbpule1@bitbucket.org/tkbpule1/name_of_repo.git
+```
+**I usually use github**
+
+```javascript
+$ git push
+$ git config --global push.default current /*Push branches to repo*/
+```
+
+###Set-up postgresql
+```javascript
+$ sudo -u postgres -i
+$ psql -U postgres
+postgres=# create user user_name with password 'password';
+postgres=# create database my_database;
+postgres=# \c my_database;
+my_database=# alter default privileges in schema public
+              grant ALL on tables to user_name;
+my_database=# alter default privileges in schema public
+              grant ALL on sequences to user_name;
+my_database=# \q
+postgres=# exit
+/*To log in as user*/
+$ psql -h localhost -U user_name my_database
+```
+
 ###Edit Gemfile to include the gems needed for the application.
 
 ####Gemfile example from Michael Hartl's [*Rails Tutorial*](www.railstutorial.org)
@@ -82,64 +124,9 @@ end
 
 ###Start the Server
 ```ruby
+$ bundle install
 $ rails server #Start the server on locahost:3000
 ```
-
-###Initialize Git
-```javascript
-$ git init
-$ git add -A
-$ git commit -am "Initialize Repository"
-```
-
-###Create a new Repository at [Github](www.github.com) or [Bitbucket](www.bitbucket.org)
-
-**Github**
-```javascript
-$ git remote add origin git@github.com:tkbpule1@gmail.com/name_of_repo.git
-```
-
-**Bitbucket**
-```javascript
-$ git remote add origin https://tkbpule1@bitbucket.org/tkbpule1/name_of_repo.git
-```
-**I usually use github**
-
-```javascript
-$ git push
-$ git config --global push.default current /*Push branches to repo*/
-```
-
-***
-
-###Configure Application
-
-**/config/database.yml**
-```yaml
-default: &default
-  adapter: postgresql
-  encoding: unicode
-  host: localhost
-  username: mobtown_admin
-  password: password
-  # For details on connection pooling, see rails configuration guide
-  # http://guides.rubyonrails.org/configuring.html#database-pooling
-  pool: 5
-
-development:
-  <<: *default
-  database: mobtown_development
-
-test:
-  <<: *default
-  database: mobtown_test
-
-production:
-  <<: *default
-  database: mobtown_production
-  password: <%= ENV['MOBTOWN_DATABASE_PASSWORD'] %>
-  ```
-
 
 ####Create .gitignore file (if it doesn't exist)
 
@@ -181,9 +168,40 @@ production:
   .byebug_history
   .powenv
 ```
+```javascript
+$ git rm -r --cached .
+$ git add .
+$ git commit -m "fixed tracked files"
+```
+###Configure Application
 
+**/config/database.yml**
+```yaml
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: localhost
+  username: postgres
+  password: password
+  # For details on connection pooling, see rails configuration guide
+  # http://guides.rubyonrails.org/configuring.html#database-pooling
+  pool: 5
 
-#####Configure production environment:
+development:
+  <<: *default
+  database: mobtown_development
+
+test:
+  <<: *default
+  database: mobtown_test
+
+production:
+  <<: *default
+  database: mobtown_production
+  password: <%= ENV['MOBTOWN_DATABASE_PASSWORD'] %>
+  ```
+
+####Configure production environment:
 
 **config/environments/production.rb**
 ```ruby
@@ -342,7 +360,7 @@ end
 ```ruby
 require 'test_helper'
 
-class StaticPagesControllerTest < ActionDispatch::IntegrationTest
+class StaticPagesControllerTest < ActionController::TestCase
 
   test 'should get home' do
     get :home
@@ -428,7 +446,7 @@ $ bundle exec rake test
 ```ruby
 require 'test_helper'
 
-class StaticPagesControllerTest < ActionDispatch::IntegrationTest
+class StaticPagesControllerTest < ActionController::TestCase
 
   test 'should get home' do
     get :home
